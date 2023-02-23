@@ -5,29 +5,17 @@ from pptx.util import Inches, Pt
 from pptx.dml.color import RGBColor
 import openpyxl
 from pptx.enum.chart import XL_CHART_TYPE
-
+import openpyxl
+import os
+# import win32com.client as win32
+from pptx import Presentation
+from pptx.util import Inches
 
 Image1 = "/home/hunter/Documents/Workspace/Python_code/py_pptx/image1.jpg"
 Image2 = "/home/hunter/Documents/Workspace/Python_code/py_pptx/image2.jpg"
 
 def generate_ppt(image1_path, image2_path, title,pres_name):
-    
-    """Generate a PowerPoint presentation with two slides, each displaying one of the input images and the specified title at the bottom left in bold white text.
 
-    Args:
-        image1_path (str): The file path of the first image to be inserted into the presentation.
-        image2_path (str): The file path of the second image to be inserted into the presentation.
-        title (str): The title to be displayed at the bottom left of each slide.
-
-    Returns:
-        None.
-    
-    Raises:
-        FileNotFoundError: If either of the image files does not exist.
-
-    Example:
-        generate_ppt('image1.jpg', 'image2.jpg', 'My Presentation Title')
-    """
     prs = Presentation()
 
     # set width and height to 16 and 9 inches.
@@ -51,23 +39,6 @@ def generate_ppt(image1_path, image2_path, title,pres_name):
     title_text_frame.paragraphs[0].font.color.rgb = RGBColor(255, 255, 255)
     title_text_frame.paragraphs[0].font.size = Pt(48)
     title_shape.top = prs.slide_height - title_shape.height - Inches(2.2)
-
-    prs.save(f"{pres_name}.pptx")
-
-def append_slides(pptx_file):
-    """Append 12 slides with a background image and a title at the header text box with some text in it and a small title.
-
-    Args:
-        pptx_file (str): The file path of the PowerPoint file to which to append the slides.
-
-    Returns:
-        None.
-
-    Example:
-        append_slides('example.pptx')
-    """
-    # Create presentation object
-    prs = Presentation(pptx_file)
 
     # Define background image path
     bg_image_path = 'Background.jpg'
@@ -106,59 +77,62 @@ def append_slides(pptx_file):
     # create second slide with image2
     slide2 = prs.slides.add_slide(prs.slide_layouts[6])
     pic2 = slide2.shapes.add_picture(Image1, 0, 0, slide_width, slide_height)
-    # Save presentation
-    prs.save(pptx_file)
+    prs.save(f"{pres_name}.pptx")
 
-def copy_charts_to_powerpoint(excel_file, pptx_file):
-    """Copy a chart from each sheet of an Excel workbook (starting from sheet 5 until the last one) and paste it into a given PowerPoint file (starting from slide 3).
 
-    Args:
-        excel_file (str): The file path of the Excel workbook.
-        pptx_file (str): The file path of the PowerPoint file to which to paste the charts.
+    # Open the Excel file and get its workbook object
+    wb = openpyxl.load_workbook("step_chart.xlsx")
+    # Define the path and name of the PowerPoint file
+    pptx_path = f"{pres_name}.pptx"
+    if os.name == 'nt':  # Check if the operating system is Windows
+        # Open the PowerPoint file and get its application object
+        ppt_app = win32.gencache.EnsureDispatch('PowerPoint.Application')
+        ppt_app.Visible = True
+        presentation = ppt_app.Presentations.Open(os.path.abspath(pptx_path))
+  
 
-    Returns:
-        None.
+    # Define the index of the slide to copy the charts to
+    slide_index = 2  # Start from slide 2, since slide 1 might have a title or other content
 
-    Example:
-        copy_charts_to_powerpoint('data.xlsx', 'presentation.pptx')
-    """
-    import xlsxwriter
-    from pptx import Presentation
-    from pptx.util import Inches
-    from tempfile import NamedTemporaryFile
-    from PIL import Image
+    # Loop over the sheets of the Excel file
+    for sheet_num in range(0,2):
+        sheet = wb.worksheets[sheet_num]
+        
+        # Get the Drawing object for the sheet, if it exists
+        drawing = sheet._drawing
+        if drawing is not None:
+            # Loop over the shapes in the Drawing object
+            for shape in drawing:
+                if shape.shape_type == 'chart':
+                    # If the shape is a chart, check if it's a bar chart
+                    if 'Bar' in shape.chart.chart_type:
+                        if os.name == 'nt':  # Check if the operating system is Windows
+                            # If it's a bar chart, copy it to the specified slide in the PowerPoint file (for Windows)
+                            chart_copy = shape.copy_picture()
+                            slide = presentation.Slides(slide_index)
+                            slide.Shapes.Paste()
+                        else:  # Otherwise, assume it's Linux
+                            # If it's a bar chart, copy it to the specified slide in the PowerPoint file (for Linux)
+                            chart = slide.shapes.add_chart(
+                                chart_type=shape.chart.chart_type,
+                                left=Inches(1),
+                                top=Inches(1),
+                                width=Inches(8),
+                                height=Inches(4.5),
+                            )
+                            chart.chart.replace_data(shape.chart._chart_data)
+                
+        slide_index += 1  # Increment the slide index for the next sheet
 
-    # Open the Excel file
-    workbook = xlsxwriter.Workbook('step_chart.xlsx')
-
-    # Open the PowerPoint file
-    prs = Presentation('presentation.pptx')
-
-    # Loop through each sheet in the Excel file
-    for sheet in workbook.worksheets():
-        # Get the chart on the sheet
-        chart = sheet.charts[0]
-
-        # Get the image of the chart
-        img_file = NamedTemporaryFile(delete=False)
-        chart_img = chart.render()
-        chart_img.save(img_file.name)
-
-        # Add the image to the PowerPoint slide
-        slide = prs.slides.add_slide(prs.slide_layouts[6])
-        left = top = Inches(1)
-        slide.shapes.add_picture(img_file.name, left, top)
-
-        # Clean up the temporary file
-        img_file.close()
-
-    # Save the PowerPoint file
-    prs.save('presentation.pptx')
-
+    if os.name == 'nt':  # Check if the operating system is Windows
+        # Save and close the PowerPoint file
+        presentation.SaveAs(os.path.abspath(pptx_path))
+        presentation.Close()
+        ppt_app.Quit()
+    else:  # Otherwise, assume it's Linux
+        # Save the PowerPoint file
+        prs.save(pptx_path)
 
 
 
 generate_ppt(Image1, Image2, 'My Presentation Title',"presentation")
-append_slides("presentation.pptx")
-copy_charts_to_powerpoint("step_chart.xlsx","presentation.pptx")
-
