@@ -89,15 +89,12 @@ def generate_ppt(image1_path, image2_path, title,pres_name):
         ppt_app = win32.gencache.EnsureDispatch('PowerPoint.Application')
         ppt_app.Visible = True
         presentation = ppt_app.Presentations.Open(os.path.abspath(pptx_path))
-  
 
     # Define the index of the slide to copy the charts to
     slide_index = 2  # Start from slide 2, since slide 1 might have a title or other content
-
     # Loop over the sheets of the Excel file
     for sheet_num in range(0,2):
         sheet = wb.worksheets[sheet_num]
-        
         # Get the Drawing object for the sheet, if it exists
         drawing = sheet._drawing
         if drawing is not None:
@@ -121,18 +118,6 @@ def generate_ppt(image1_path, image2_path, title,pres_name):
                                 height=Inches(4.5),
                             )
                             chart.chart.replace_data(shape.chart._chart_data)
-                
         slide_index += 1  # Increment the slide index for the next sheet
-
-    if os.name == 'nt':  # Check if the operating system is Windows
-        # Save and close the PowerPoint file
-        presentation.SaveAs(os.path.abspath(pptx_path))
-        presentation.Close()
-        ppt_app.Quit()
-    else:  # Otherwise, assume it's Linux
-        # Save the PowerPoint file
         prs.save(pptx_path)
-
-
-
 generate_ppt(Image1, Image2, 'My Presentation Title',"presentation")
