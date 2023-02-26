@@ -79,45 +79,35 @@ def generate_ppt(image1_path, image2_path, title,pres_name):
     pic2 = slide2.shapes.add_picture(Image1, 0, 0, slide_width, slide_height)
     prs.save(f"{pres_name}.pptx")
 
+    #!-----------------------------------------------------------------------------
 
-    # Open the Excel file and get its workbook object
-    wb = openpyxl.load_workbook("step_chart.xlsx")
-    # Define the path and name of the PowerPoint file
-    pptx_path = f"{pres_name}.pptx"
-    if os.name == 'nt':  # Check if the operating system is Windows
-        # Open the PowerPoint file and get its application object
-        ppt_app = win32.gencache.EnsureDispatch('PowerPoint.Application')
-        ppt_app.Visible = True
-        presentation = ppt_app.Presentations.Open(os.path.abspath(pptx_path))
 
-    # Define the index of the slide to copy the charts to
-    slide_index = 2  # Start from slide 2, since slide 1 might have a title or other content
-    # Loop over the sheets of the Excel file
-    for sheet_num in range(0,2):
-        sheet = wb.worksheets[sheet_num]
-        # Get the Drawing object for the sheet, if it exists
-        drawing = sheet._drawing
-        if drawing is not None:
-            # Loop over the shapes in the Drawing object
-            for shape in drawing:
-                if shape.shape_type == 'chart':
-                    # If the shape is a chart, check if it's a bar chart
-                    if 'Bar' in shape.chart.chart_type:
-                        if os.name == 'nt':  # Check if the operating system is Windows
-                            # If it's a bar chart, copy it to the specified slide in the PowerPoint file (for Windows)
-                            chart_copy = shape.copy_picture()
-                            slide = presentation.Slides(slide_index)
-                            slide.Shapes.Paste()
-                        else:  # Otherwise, assume it's Linux
-                            # If it's a bar chart, copy it to the specified slide in the PowerPoint file (for Linux)
-                            chart = slide.shapes.add_chart(
-                                chart_type=shape.chart.chart_type,
-                                left=Inches(1),
-                                top=Inches(1),
-                                width=Inches(8),
-                                height=Inches(4.5),
-                            )
-                            chart.chart.replace_data(shape.chart._chart_data)
-        slide_index += 1  # Increment the slide index for the next sheet
-        prs.save(pptx_path)
+    # Load the Excel workbook.
+    workbook = openpyxl.load_workbook(filename='step_chart.xlsx')
+
+    # Load the PowerPoint presentation.
+    ppt = Presentation('presentation.pptx')
+
+    # Loop through each worksheet in the Excel workbook
+    for sheet in workbook:
+
+        # Loop through each chart in the worksheet
+        for chart in sheet._charts:
+
+            # Create a new slide in the PowerPoint presentation
+            slide = ppt.slides.add_slide(ppt.slide_layouts[6])
+
+            # Add the chart to the slide
+            chart_blob = chart._write._chart_part()
+            chart_object = slide.shapes.add_chart(chart.chart_type, Inches(1), Inches(2), Inches(8), Inches(4), chart_blob)
+
+
+        # Save the modified PowerPoint presentation.
+        ppt.save('presentation.pptx')
+
+
+    
+
+
+    #!...............................................................
 generate_ppt(Image1, Image2, 'My Presentation Title',"presentation")
